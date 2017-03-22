@@ -7,10 +7,10 @@ I come from Santa Rosa, CA. I transferred to UC Davis from Santa Rosa Junior Col
 <ul>
 <li><a href="STA 141B/Project/STA 141B Final Project (Patrick).html" title="Final Project">White House Petitions (Final Project)</a></li>
 <li><a href="STA 141B/Assignment 2/assignment3_PatrickVacek.html" title="Numpy">Oops the cat</a></li>
-<li><a href="STA 141B/Assignment 2/assignment3_PatrickVacek.html" title="Pandas">Revenge of the cucumbers</a></li>
-<li><a href="STA 141B/Assignment 2/assignment4_PatrickVacek.html" title="API">Fruit Database (API's and Modeling)</a></li>
-<li><a href="STA 141B/Assignment 2/assignment5_PatrickVacek.html" title="Web Scraping / NLP">Neighborizing the articles of the Aggie</a></li>
-<li><a href="STA 141B/Assignment 2/assignment6_PatrickVacek.html" title="SQL / GIS">Taking a bite out of San Francisco crime, and food trucks</a></li>
+<li><a href="STA 141B/Assignment 3/assignment3_PatrickVacek.html" title="Pandas">Revenge of the cucumbers</a></li>
+<li><a href="STA 141B/Assignment 4/assignment4_PatrickVacek.html" title="API">Fruit Database (API's and Modeling)</a></li>
+<li><a href="STA 141B/Assignment 5/assignment5_PatrickVacek.html" title="Web Scraping / NLP">Neighborizing the articles of the Aggie</a></li>
+<li><a href="STA 141B/Assignment 6/assignment6_PatrickVacek.html" title="SQL / GIS">Taking a bite out of San Francisco crime, and food trucks</a></li>
 </ul>
 
 ### A vignette of my R coding skills
