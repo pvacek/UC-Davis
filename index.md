@@ -6,7 +6,7 @@ I come from Santa Rosa, CA. I transferred to UC Davis from Santa Rosa Junior Col
 
 <ul>
 <li><a href="STA 141B/Project/STA 141B Final Project (Patrick).ipynb" title="Final Project">White House Petitions (Final Project)</a></li>
-<li><a href="STA 141B/Assignment 2/assignment2.html" title="Numpy">Oops the cat</a></li>
+<li><a href="STA 141B/Assignment 2/assignment2_patrickvacek.html" title="Numpy">Oops the cat</a></li>
 <li><a href="STA 141B/Assignment 2/assignment3_PatrickVacek.ipynb" title="Pandas">Revenge of the cucumbers</a></li>
 <li><a href="STA 141B/Assignment 2/assignment4_PatrickVacek.ipynb" title="API">Fruit Database (API's and Modeling)</a></li>
 <li><a href="STA 141B/Assignment 2/assignment5_PatrickVacek.ipynb" title="Web Scraping / NLP">Neighborizing the articles of the Aggie</a></li>
