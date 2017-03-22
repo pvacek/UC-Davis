@@ -6,12 +6,12 @@ I come from Santa Rosa, CA. I transferred to UC Davis from Santa Rosa Junior Col
 
 <ul>
 <b>STA141B: "Stat Data Technologies" AKA Pythonic Data Science for lil' undergrads</b>
-<li><a href="project141b" title="Final Project">White House Petitions (Final Project)</a></li>
-<li><a href="assignments/141b_assignment2.html" title="Numpy">Oops the cat</a></li>
-<li><a href="assignments/141b_assignment3.html" title="Pandas">Revenge of the cucumbers</a></li>
-<li><a href="assignments/141b_assignment4.html" title="API">Fruit Database (API's and Modeling)</a></li>
-<li><a href="assignments/141b_assignment5.html" title="Web Scraping / NLP">Neighborizing the articles of the Aggie</a></li>
-<li><a href="assignments/141b_assignment6.html" title="SQL / GIS">Taking a bite out of San Francisco crime, and food trucks</a></li>
+<li><a href="STA 141B/Project/STA 141B Final Project (Patrick).ipynb" title="Final Project">White House Petitions (Final Project)</a></li>
+<li><a href="STA 141B/Assignment 2/assignment2_PatrickVacek.ipynb" title="Numpy">Oops the cat</a></li>
+<li><a href="STA 141B/Assignment 2/assignment3_PatrickVacek.ipynb" title="Pandas">Revenge of the cucumbers</a></li>
+<li><a href="STA 141B/Assignment 2/assignment4_PatrickVacek.ipynb" title="API">Fruit Database (API's and Modeling)</a></li>
+<li><a href="STA 141B/Assignment 2/assignment5_PatrickVacek.ipynb" title="Web Scraping / NLP">Neighborizing the articles of the Aggie</a></li>
+<li><a href="STA 141B/Assignment 2/assignment6_PatrickVacek.ipynb" title="SQL / GIS">Taking a bite out of San Francisco crime, and food trucks</a></li>
 </ul>
 
 ### Some code examples from R
