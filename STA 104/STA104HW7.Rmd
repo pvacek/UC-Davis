@@ -1,0 +1,183 @@
+---
+title: "STA 104 Homework 7"
+author: "Patrick Vacek, ID#999676176"
+date: "June 1, 2016"
+output: html_document
+---
+
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(104)
+library(class)
+library(caret)
+library(party)
+library(knitr)
+heart<-read.csv("heart.csv")
+solano<-read.csv("solano.csv")
+titanic<-read.csv("titanic.csv")
+read<-read.csv("read.csv")
+```
+
+##Question 1
+
+a. The choices we have for F and K are below:
+
+```{r,echo=FALSE}
+fold<-function(F,data){
+  rndm<-data[sample(1:nrow(data)),]
+  fold.lengths<-rep(trunc(nrow(data)/F),F)
+  random.folds<-sample(1:F,nrow(data)%%F)
+  fold.lengths[random.folds]<-fold.lengths[random.folds]+1
+  fold.indices<-lapply(1:F,function(i)seq(1+sum(fold.lengths[min(1,i-1):(i-1)]),sum(fold.lengths[1:i])))
+  folds<-lapply(1:F,function(i)rndm[fold.indices[[i]],])
+  return(folds)
+}
+
+applyKNN<-function(k,F,data,column,error=TRUE){
+  folds<-fold(F,data)
+  application<-lapply(1:F,function(i){
+    trainset<-do.call(rbind,folds[-i])
+    testset<-folds[[i]]
+    predictions<-knn(trainset[,-column],testset[,-column],trainset[,column],k=k)
+    if(error==TRUE){
+      error.rate<-1-sum(predictions==testset[,column])/nrow(testset)
+      return(error.rate)}
+    else{
+      error.vector<-data.frame(predict=predictions,actual=testset[,column])
+      return(error.vector)}
+  })
+  if(error==TRUE){
+    avg.error.rate<-mean(unlist(application))
+    return(avg.error.rate)}
+  else{
+    error.matrix<-do.call(rbind,application)
+    return(error.matrix)
+  }
+}
+
+knnchoices<-mapply(function(x,y)applyKNN(x,y,heart,5),x=rep(seq(10,30,10),each=3),y=rep(c(5,10,20),3))
+knn.choice.matrix<-matrix(knnchoices,3,3,byrow=TRUE)
+rownames(knn.choice.matrix)<-c("k=10","k=20","k=30")
+colnames(knn.choice.matrix)<-c("F=5","F=10","F=20")
+kable(knn.choice.matrix,digits=4)
+```
+
+b. Based on the results from part a, we should choose $k=30,F=10$ as our model.
+
+c. Below is the confusion matrix for $k=30,F=10$:
+
+```{r,echo=FALSE}
+error.matrix<-applyKNN(30,10,heart,5,error=FALSE)
+error.matrix.tbl<-table(error.matrix[,1],error.matrix[,2])
+kable(error.matrix.tbl)
+```
+
+The predicted values are the row values and the actual values are the columns. We can see that our predictive model underpredicts cases of arrhythmia.
+
+d. We can use some simple indexing to retrieve the subset of false predictions in the "heart" dataset.
+
+```{r,echo=FALSE}
+heart$correct=factor(error.matrix[,1]==error.matrix[,2])
+summary(heart[heart$correct==TRUE,1:5])
+summary(heart[heart$correct==FALSE,1:5])
+var(heart[heart$correct==FALSE,1:4])-var(heart[heart$correct==TRUE,1:4])
+```
+
+It appears that subjects with higher heart rates, more variation in age, less variation in height and weight, are more likely to be misclassified.
+
+e. Since there are only two categories to predict, and the misclassification rate is significantly below 50%, the rate is fairly low. Having a large ratio of variables towards possible prediction values helps in creating a lower misclassification rate.
+
+##Question 2
+
+a.
+
+```{r, echo=FALSE}
+solano.fix<-solano[,-1]
+
+applyKNNreg<-function(k,F,data,column){
+  folds<-fold(F,data)
+  application<-lapply(1:F,function(i){
+    trainset<-do.call(rbind,folds[-i])
+    testset<-folds[[i]]
+    model<-knnreg(trainset[,-column],trainset[,column],k=k)
+    prediction<-predict(model,testset[,-column])
+    error.vector<-data.frame(predict=prediction,actual=testset[,column])
+    return(error.vector)
+  })
+    error.matrix<-Reduce(rbind,application)
+    sse<-sum((error.matrix[,1]-error.matrix[,2])^2)
+    results<-list(error=error.matrix,sse=sse)
+    return(results)
+}
+
+solano.knn.choices<-mapply(function(x,y)applyKNNreg(x,y,solano.fix,1),x=rep(c(5,10,30,50),each=3),y=rep(c(10,20,30),4))
+solano.sse<-unlist(solano.knn.choices[2,])
+solano.sse.matrix<-matrix(solano.sse,4,3,byrow=TRUE)
+rownames(solano.sse.matrix)<-c("k=5","k=10","k=30","k=50")
+colnames(solano.sse.matrix)<-c("F=10","F=20","F=30")
+kable(solano.sse.matrix,digits=4)
+```
+
+b. Based off of the table from part 2a, using $k=30,F=30$ yields the lowest sum of squared error.
+
+c.
+
+```{r,echo=FALSE}
+solano.model<-solano.knn.choices[,9]$error
+plot(x=solano.model[,2],y=solano.model[,1],xlab="Actual Price",ylab="Predicted Price",main="Price Prediction Assesment for Solano County Homes")
+```
+
+d. It appears that homes with higher actual prices became harder and harder to predict, as evidenced by the fact that the scatterplot's linear trend weakens significantly once the actual price approaches $1,000,000.
+
+e. If a variable that measures lot size is added, it can reduce the amount of error. Some buyers might want a lot that has a lot of land, but they don't need a large house on the lot.
+
+##Question 3
+
+a. See Figure 3.1 for the plot.
+
+```{r,echo=FALSE}
+titanic.tree<-ctree(Survived~Class+Age+Sex,data=titanic)
+```
+
+b. If a person on board the titanic was a child, who was male, and was part of the second class, they survived 100% of the time.
+
+c. Men who were part of the second class who were adults had the lowest rate of survival.
+
+d. Females had a higher chance of survival since the tree uses gender as a category in such a way that the terminal nodes for female have significantly higher chances of survival than the male nodes.
+
+e.
+
+```{r,echo=FALSE}
+titanic.predict<-predict(titanic.tree)
+titanic.table<-data.frame(predict=titanic.predict,actual=titanic[,4])
+table(titanic.table)
+```
+
+f. The misclassification rate is $`r (1-sum(titanic.predict==titanic[,4])/nrow(titanic))`$.
+
+##Question 4
+
+a. See Figure 4.1 for the plot.
+
+```{r,echo=FALSE}
+read.tree<-ctree(nativeSpeaker~age+score+shoeSize,data=read)
+```
+
+b. The model is very effective since most nodes are very close to 0 or 1 in probability.
+
+c. Shoe size seems to be an irrelevant predictor in predicting if someone is a native speaker or not. The terminal node related to shoe size also has the weakest prediction proportion out of all terminal nodes.
+
+d. See Figure 4.2 for the plot.
+
+```{r,echo=FALSE}
+read.tree.lean<-ctree(nativeSpeaker~age+score,data=read)
+```
+
+e.
+
+```{r,echo=FALSE}
+read.predict<-predict(read.tree.lean)
+read.tree.table<-data.frame(predict=read.predict,actual=read[,1])
+table(read.tree.table)
+```
+
+f. The error rate for the re-fitted model is $`r (1-sum(read.predict==read[,1])/nrow(read))`$.
