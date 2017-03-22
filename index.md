@@ -5,17 +5,17 @@ I come from Santa Rosa, CA. I transferred to UC Davis from Santa Rosa Junior Col
 ### Work Samples from STA 141B: "Stat Data Technologies" AKA Pythonic Data Science for lil' undergrads
 
 <ul>
-<li><a href="STA 141B/Project/STA 141B Final Project (Patrick).ipynb" title="Final Project">White House Petitions (Final Project)</a></li>
-<li><a href="STA 141B/Assignment 2/assignment2_patrickvacek.html" title="Numpy">Oops the cat</a></li>
-<li><a href="STA 141B/Assignment 2/assignment3_PatrickVacek.ipynb" title="Pandas">Revenge of the cucumbers</a></li>
-<li><a href="STA 141B/Assignment 2/assignment4_PatrickVacek.ipynb" title="API">Fruit Database (API's and Modeling)</a></li>
-<li><a href="STA 141B/Assignment 2/assignment5_PatrickVacek.ipynb" title="Web Scraping / NLP">Neighborizing the articles of the Aggie</a></li>
-<li><a href="STA 141B/Assignment 2/assignment6_PatrickVacek.ipynb" title="SQL / GIS">Taking a bite out of San Francisco crime, and food trucks</a></li>
+<li><a href="STA 141B/Project/STA 141B Final Project (Patrick).html" title="Final Project">White House Petitions (Final Project)</a></li>
+<li><a href="STA 141B/Assignment 2/assignment3_PatrickVacek.html" title="Numpy">Oops the cat</a></li>
+<li><a href="STA 141B/Assignment 2/assignment3_PatrickVacek.html" title="Pandas">Revenge of the cucumbers</a></li>
+<li><a href="STA 141B/Assignment 2/assignment4_PatrickVacek.html" title="API">Fruit Database (API's and Modeling)</a></li>
+<li><a href="STA 141B/Assignment 2/assignment5_PatrickVacek.html" title="Web Scraping / NLP">Neighborizing the articles of the Aggie</a></li>
+<li><a href="STA 141B/Assignment 2/assignment6_PatrickVacek.html" title="SQL / GIS">Taking a bite out of San Francisco crime, and food trucks</a></li>
 </ul>
 
-### Some code examples from R
+### A vignette of my R coding skills
 
-#Cross-validation from STA 104: Nonparametric Statistics
+#Cross-validation function from STA 104: Nonparametric Statistics
 
 ```R
 fold<-function(F,data){
