@@ -2,10 +2,9 @@
 
 I come from Santa Rosa, CA. I transferred to UC Davis from Santa Rosa Junior College at the age of 20, the Harvard of the west coast, as an Economics major with minimal programming experience. Thanks to the wonderful teaching abilities of the Statistics Department here, I developed an interest in the practice of Statistics, so I joined their program at the age of 22. The courses I have taken since then have allowed me to showcase my skills in R and Python.
 
-### Work Samples
+### Work Samples from STA 141B: "Stat Data Technologies" AKA Pythonic Data Science for lil' undergrads
 
 <ul>
-<b>STA141B: "Stat Data Technologies" AKA Pythonic Data Science for lil' undergrads</b>
 <li><a href="STA 141B/Project/STA 141B Final Project (Patrick).ipynb" title="Final Project">White House Petitions (Final Project)</a></li>
 <li><a href="STA 141B/Assignment 2/assignment2_PatrickVacek.ipynb" title="Numpy">Oops the cat</a></li>
 <li><a href="STA 141B/Assignment 2/assignment3_PatrickVacek.ipynb" title="Pandas">Revenge of the cucumbers</a></li>
