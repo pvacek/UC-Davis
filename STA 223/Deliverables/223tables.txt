@@ -1,0 +1,83 @@
+#STA 223 Project, TABLES
+
+#Model guesses
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rr}
+  \hline
+ & num\_correct \\ 
+  \hline
+0 & 360 \\ 
+  1 & 223 \\ 
+  2 & 214 \\ 
+  3 & 240 \\ 
+  4 & 191 \\ 
+  5 & 317 \\ 
+  6 & 673 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+#Number correct by category
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rlr}
+  \hline
+ & category2 & num\_correct \\ 
+  \hline
+1 & Art & 3.66 \\ 
+  2 & Alternative & 3.22 \\ 
+  3 & Documentary & 3.14 \\ 
+  4 & Food & 4.38 \\ 
+  5 & Music & 3.01 \\ 
+  6 & Product Design & 2.65 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+#Models 1-4
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{rllrr}
+  \hline
+ & Model & Predictors & AUC & Acc \\ 
+  \hline
+1 & Model 1 & \~{}norm\_goal & 0.60 & 0.56 \\ 
+  2 & Model 2 & \~{}goal*category & 0.65 & 0.54 \\ 
+  3 & Model 3 & \~{}goal*(category+country) & 0.65 & 0.54 \\ 
+  4 & Model 4 & \~{}(goal+duration)*(category+country) & 0.66 & 0.57 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+#Models 5-6
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{rllrr}
+  \hline
+ & Model & Predictors & AUC & Acc \\ 
+  \hline
+1 & Model 5 & \~{}(goal+hours)*category2 & 0.70 & 0.64 \\ 
+  2 & Model 6 & \~{}(goal+hours+goal*hours+duration)*category2 & 0.72 & 0.63 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+#Word counts in each group
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{rllllll}
+  \hline
+ & Group & first & second & third & fourth & fifth \\ 
+  \hline
+1 & Score1$<$=.1\&Score2$<$=.1 & make & help & want & need & music \\ 
+  2 & Score1$>$.1 & salad & potato & make & want & better \\ 
+  3 & Score2$>$.1 & make & pizza & want & cookie & chip \\ 
+   \hline
+\end{tabular}
+\end{table}
