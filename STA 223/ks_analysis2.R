@@ -1,14 +1,13 @@
 #Kickstarter Project, Take III
 
 library(glmnet)
-library(gam)
 library(MASS)
 library(data.table)
 library(ggplot2)
 library(xtable)
 library(plyr)
 library(pROC)
-library(gam)
+library(caret)
 
 setwd("../Desktop")
 
@@ -23,13 +22,37 @@ approxAcc<-function(yhat,y,cutoff){
   return(acc)
 }
 
-categoryNorm<-function(X,catVar,data){
-  mean_SD<-aggregate(as.formula(paste0(X,"~",catVar)),data,function(x)c(mean(x),sd(x)))
+categoryNorm<-function(X,catVar,dataF,dataT,useWith=FALSE){
+  #This function normalizes a variable by the tuning set, applies normalization across full data
+  mean_SD<-aggregate(as.formula(paste0(X,"~",catVar)),dataT,function(x)c(mean(x),sd(x)))
   mean_SD<-data.frame(mean_SD[,1],mean_SD[,2][,1],mean_SD[,2][,2])
   colnames(mean_SD)<-c(catVar,"mean","sd")
-  data_meanSD<-join(data,mean_SD)[,c("mean","sd")]
-  norm_X<-(data[,X]-data_meanSD[,1])/data_meanSD[,2]
+  data_meanSD<-join(dataF,mean_SD)[,c("mean","sd")]
+  if(useWith==FALSE){
+    data_X<-dataF[,X,with=FALSE]
+  }
+  else{
+    data_X<-dataF[,X]
+  }
+  norm_X<-(data_X-data_meanSD[,1])/data_meanSD[,2]
   return(norm_X)
+}
+
+predictAll<-function(data,folds,model_formula){
+  pred_list<-lapply(1:length(folds),function(i)predictOne(data,folds,i,model_formula))
+  preds<-unlist(pred_list)
+  preds_ord<-preds[order(as.numeric(names(preds)))]
+  return(preds_ord)
+}
+
+predictOne<-function(data,folds,i,model_formula){
+  test_TF<-1:nrow(data)%in%folds[[i]]
+  train<-data[test_TF==FALSE,]
+  test<-data[test_TF==TRUE,]
+  fit<-glm(as.formula(model_formula),train,family=binomial())
+  predict<-predict(fit,type="response",test)
+  names(predict)<-folds[[i]]
+  return(predict)
 }
 
 ##PART I: Choice of Categories
@@ -42,13 +65,20 @@ top5cats<-names(tail(sort(table(ks714$category_combo)),5))
 #Keep the top 5, drop the combo column, subset the data
 ks714L<-ks714[ks714$category_combo%in%top5cats,-21]
 
-#Also drop NL/NZ for now, my change later
+#Also drop NL/NZ due to their sparse count in this subset.
 ks714L<-ks714L[grepl("N[ZL]",ks714L$country)==FALSE,]
 
 #Our remaining categories are: Art, Documentaries, Food, Music and Product Design
 
-#Place approximately 40% of the data in the test set:
-test_ids<-sample(1:nrow(ks714L),floor(.4*nrow(ks714L)))
+#CHOICE OF TEST SET, TRAINING SET AND TUNING SET:
+#Split data into four blocks
+folds<-createFolds(ks714L$outcome,k=4)
+
+#Initial set-up, Folds 1&2 form training, 3 forms test, 4 forms tuning
+
+train_idx<-c(folds[[1]],folds[[2]])
+test_idx<-folds[[3]]
+tune_idx<-folds[[4]]
 
 #Part II: Exploratory Data Analysis
 #We have four essential predictors: goal, duration, country, category
@@ -56,27 +86,32 @@ test_ids<-sample(1:nrow(ks714L),floor(.4*nrow(ks714L)))
 
 ##i. CATEGORY##
 
-##ii. GOAL##
+#Simple question: What is the success rate by category?
 
-#Our measure is in real USD dollars. So all currencies are accounted for.
-#What does the data look like?
-plot(sort(ks714L$usd_goal_real))
-#One big outlier, one MASSIVE outlier. Data needs to be transformed. Consider log
-#Even without the outlier, the data is incredibly skewed
-hist(ks714L$usd_goal_real[ks714L$usd_goal_real<=250000],breaks=25)
+barplot(prop.table(table(ks714L$category,ks714L$outcome),margin=1)[,2],ylab="Success Rate",main="Success Rate by Category")
+
+#Art hits right around the baseline...20%. Documentaries and product designs are more likely to be successful.
+#Food seems to be causing the drag down in success rate.
+
+##ii. GOAL##
 
 #A log transform is common for large numeric measures. It would work well here for the money as well.
 
 ks714L$log_goal<-log(ks714L$usd_goal_real)
 
+#Make the tuning set now, since we just added log goal
+
 #Let's normalize the log goal, it will help distinguish what will succed and not succeed.
 
-ks714L$norm_goal<-categoryNorm("log_goal","category",ks714L)
+ks714L$norm_goal<-categoryNorm("log_goal","category",ks714L,ks714L)
 
 #What does the norm goal look like across project categories?
 
-p <- ggplot(ks714L, aes(x=category, y=norm_goal,fill=factor(outcome))) + 
-  geom_violin(position=position_dodge(1))
+p <- ggplot(ks714L, aes(x=category, y=usd_goal_real,fill=factor(outcome,labels=c("Fail","Success")))) + 
+  geom_violin(position=position_dodge(1))+scale_y_log10(labels = scales::comma,breaks=c(0,10^seq(0,9)))
+p<-p+ylab("Goal (USD, real dollars)")+xlab("")
+p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')+ggtitle("How do projects succeed across each category?")
+p<-p+theme(plot.title = element_text(hjust = 0.5))
 p
 
 #Some interesting patterns here, mainly that food has its successes at much lower amounts.
@@ -84,181 +119,176 @@ p
 
 ##iii. DURATION##
 
+#What does the frequency of duration look like?
+
+duration_counts<-as.vector(table(factor(ks714L$duration,levels=seq(1,60))))
+
+plot(x=seq(1,60),y=duration_counts,type='b',xlab="Duration (days)",ylab="Count",main="Frequency Distribution for Duration")
+
 #We'll also normalize duration within category
 
-ks714L$norm_duration<-categoryNorm("duration","category",ks714L)
+ks714L$norm_duration<-categoryNorm("duration","category",ks714L,ks714TU)
 
 #What does the duration look against outcome?
 
-plot(x=ks714L$norm_duration,y=ks714L$outcome)
+plot(x=ks714L$norm_duration,y=ks714L$outcome,xlab="Duration, normalized by category",ylab="Project Outcome",
+     main="Examining the 'Duration Effect'")
 lines(smooth.spline(ks714L$norm_duration,ks714L$outcome, spar = 1.1), col = "blue",lwd=2)
 abline(h=mean(ks714L$outcome),col="red",lwd=2)
 
 #Duration looks to be a negative effect. The longer the project, the less likely to succeed.
 
 #How does duration look versus the normalized goal?
-plot(x=ks714L$norm_duration,y=ks714L$norm_goal)
+plot(x=ks714L$norm_duration,y=ks714L$norm_goal,xlab="Normalized Duration",ylab="Normalized Goal",
+     main="Examining the Goal-Duration relationship")
 lines(smooth.spline(ks714L$norm_duration,ks714L$norm_goal, spar = 1.3), col = "blue",lwd=2)
 
-#Slight linear effect, probably not worth taking into consideration.
-
-##Alternative analysis, dollars per day.##
-
-ks714L$DPD<-log(ks714L$usd_goal_real/ks714L$duration)
-ks714L$norm_DPD<-categoryNorm("DPD","category",ks714L)
-
-p <- ggplot(ks714L, aes(x=category, y=norm_duration,fill=factor(outcome))) + 
-  geom_violin(position=position_dodge(1))
-p
+#Positive linear effect, the longer the duration, the more money asked for
 
 ##iv. COUNTRY##
 
-p <- ggplot(ks714L, aes(x=country, y=norm_goal,fill=factor(outcome))) + 
+ks714L$country<-factor(ks714L$country,labels=c("Australia","Canada","Great Britain","United States"))
+
+#What is the success rate by country?
+barplot(prop.table(table(ks714L$country,ks714L$outcome),margin=1)[,2],ylab="Success Rate",main="Success Rate by Country")
+
+p <- ggplot(ks714L, aes(x=country, y=norm_goal,fill=factor(outcome,labels=c("Fail","Success")))) + 
   geom_violin(position=position_dodge(1))
+p<-p+ylab("Goal, normalized by category")+xlab("")
+p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')+ggtitle("How well does each country fund projects?")
+p<-p+theme(plot.title = element_text(hjust = 0.5))
 p
 
 #US is more likely to fund 'extravagant' projects.
 
-#One thing to consider: with the data dropped to 2K, consider removing NL/NZ from data.
+#Are there specific category/country combos that are unusually successful?
+
+catcou<-aggregate(outcome~country+category,ks714L,length)
+catcou2<-aggregate(outcome~country+category,ks714L,sum)
+catcou$rate<-(catcou2$outcome+1)/(catcou$outcome+2)
+catcou$base<-join(catcou,setNames(aggregate(outcome~category,ks714L,mean),c("category","catout")),by="category")$catout
+catcou$impact<-log((catcou$rate)/(1-catcou$rate))-log(catcou$base/(1-catcou$base))
+treemap(catcou,index=c("country","category"),vSize="outcome",vColor="impact",type="value",palette="Greens",
+        title="Are certain countries better at funding projects?",title.legend="")
+
+#US has balanced taste. Great Britain prefers product design over food. Canada dislikes music projects.
+#Australia is a bit harder to interpret due to size issues, but they prefer art, dislike product design/documentary.
 
 #Part III: Initial model fitting
-#We need to split the data into a training and test set:
 
-ks714LTR<-ks714L[-test_ids,c("outcome","norm_goal","norm_duration","category","country")]
-ks714LTE<-ks714L[test_ids,c("outcome","norm_goal","norm_duration","category","country")]
+#Split the data into initial training and test set
+
+ks714TR<-ks714L[train_idx,]
+ks714TE<-ks714L[test_idx,]
+ks714TU<-ks714L[tune_idx,]
 
 #See the prediction accuracy rate for the simplest model, predict success based on norm_goal
 
-model_1<-glm(outcome~norm_goal,ks714LTR,family=binomial())
-ks714LTE$m1pred<-predict(model_1,data.frame(norm_goal=ks714LTE$norm_goal),type="response")
+ks714L$m1pred<-predictAll(ks714L,folds,"outcome~norm_goal")
 
-m1_roc<-roc(outcome~m1pred,ks714LTE)
+m1_roc<-roc(outcome~m1pred,ks714L)
 plot(m1_roc)
 
-m1_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714LTE$m1pred,ks714LTE$outcome,x))
+m1_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714L$m1pred,ks714L$outcome,x))
 
-#.5776 AUC, not very strong.
+#.5955 AUC, not very strong.
 
-model_2<-glm(outcome~norm_goal+category,ks714LTR,family=binomial())
-ks714LTE$m2pred<-predict(model_2,data.frame(norm_goal=ks714LTE$norm_goal,category=ks714LTE$category),type="response")
+ks714L$m2pred<-predictAll(ks714L,folds,"outcome~norm_goal*category")
 
-m2_roc<-roc(outcome~m2pred,ks714LTE)
+m2_roc<-roc(outcome~m2pred,ks714L)
 plot(m2_roc)
 
-#.6691 AUC, an improvement
+#.6270 AUC, an improvement
 
-m2_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714LTE$m2pred,ks714LTE$outcome,x))
+m2_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714TE$m2pred,ks714TE$outcome,x))
 
-#Now try adding duration and country
+#Now try adding country
 
-model_3<-glm(outcome~norm_goal+norm_duration+category+country,ks714LTR,family=binomial())
-ks714LTE$m3pred<-predict(model_3,data.frame(ks714LTE[,2:5]),type="response")
+ks714L$m3pred<-predictAll(ks714L,folds,"outcome~norm_goal*(category+country)")
 
-m3_roc<-roc(outcome~m3pred,ks714LTE)
+m3_roc<-roc(outcome~m3pred,ks714L)
 plot(m3_roc)
 
-#.6597, does not help.
+#.6467, does help
 
-m3_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714LTE$m3pred,ks714LTE$outcome,x))
+m3_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714L$m4pred,ks714L$outcome,x))
 
-#Next model, second order effects with lasso
+ks714L$m4pred<-predictAll(ks714L,folds,"outcome~(category+country)*(norm_goal+norm_duration)")
 
-ksTR_data_matrix<-sparse.model.matrix(outcome~-1+(norm_goal+I(norm_goal^2)+norm_duration+I(norm_duration^2)+category+country)^2,data=ks714LTR)
-ksTE_data_matrix<-sparse.model.matrix(outcome~-1+(norm_goal+I(norm_goal^2)+norm_duration+I(norm_duration^2)+category+country)^2,data=ks714LTE)
-
-plot(ks_lasso_fit,xvar="dev")
-
-ks_lasso_cv<-cv.glmnet(ksTR_data_matrix,ks714LTR$outcome,family="binomial",type.measure="auc")
-
-ks_lasso_fit<-glmnet(ksTE_data_matrix, ks714LTE$outcome,lambda=ks_lasso_cv$lambda.min,family = "binomial")
-
-#Examine the results
-
-plot(ks_lasso_cv)
-
-plot(ks_lasso_cv$glmnet.fit,"lambda")
-
-ks714LTE$m4pred<-predict(ks_lasso_fit,newx=ksTE_data_matrix,type="response",s=ks_lasso_cv$lambda.min)
-
-m4_roc<-roc(outcome~m4pred,ks714LTE)
+m4_roc<-roc(outcome~m4pred,ks714L)
 plot(m4_roc)
 
-#A bit better at .6882. Similar effects to before.
+m4_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714L$m4pred,ks714L$outcome,x))
 
-m4_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714LTE$m4pred,ks714LTE$outcome,x))
+#.6586 also helps.
+
+#A bit better at .632. Still have weak effects unfortunately.
+
+m4_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714TE$m4pred,ks714TE$outcome,x))
 
 #Here's a plot of the accuracy across each model for cutoff value
 
 matplot(x=seq(.01,.99,.01),do.call(cbind,list(m1_acc,m2_acc,m3_acc,m4_acc)),type='l')
 
-#At 0.5, we'll always get 80% accuracy it appears
-#We have to consider which metric we want to MAXIMIZE. AUC is kind of a 'catch-all'.
 #Model 4 is clearly the best model for prediction so far. But can we improve it?
 
 #Let's examine some new variables
-ks714NL<-read.csv("ks714NLP2.csv")
-ks714NL$cluster<-factor(ks714NL$cluster+1)
+ks714NL<-read.csv("ks714NLP.csv")
 
 #Also, re drop NL and NZ for now
 
 ks714NL<-ks714NL[grepl("N[ZL]",ks714NL$country)==FALSE,]
 
+ks714NL$country<-factor(ks714NL$country,labels=c("Australia","Canada","Great Britain","United States"))
+
+#What do the 'text scores' look like?
+
+qplot(x=ks714NL$score1,y=ks714NL$score2,color=ks714NL$category)
+
+#The variation in the text data is massively explained by the 'Food' category.
+
+ks714NL$Weird<-(ks714NL$score1>0.1|ks714NL$score2>0.1)*1
+ks714NL$category2<-ifelse(ks714NL$Weird==1,"Alternative",as.character(ks714NL$category))
+
 #We now re-define the categories by adding the 'Potato Salad' factor
 #Example: look at the log hours until launch with potato salad included
-boxplot(log_goal~category2,ks714NL)
+boxplot(log_goal~Weird*outcome*category,ks714NL)
 
-#We renormalize based on category 2
+#We renormalize based on category
 
-ks714NL$norm_goal<-categoryNorm("log_goal","category2",ks714NL)
-ks714NL$normhours<-categoryNorm("loghours","category2",ks714NL)
-ks714NL$norm_duration<-categoryNorm("duration","category2",ks714NL)
-ks714NL$normtext<-categoryNorm("textScore","category2",ks714NL)
+ks714NL$norm_goal<-categoryNorm("log_goal","category2",ks714NL,ks714NL,useWith=TRUE)
+ks714NL$normhours<-categoryNorm("loghours","category2",ks714NL,ks714NL,useWith=TRUE)
+ks714NL$norm_duration<-categoryNorm("duration","category2",ks714NL,ks714NL,useWith=TRUE)
 
 #Let's examine a few predictor relationships
-p <- ggplot(ks714NL, aes(x=category2, y=normhours,fill=factor(outcome))) + 
-  geom_violin(position=position_dodge(1))
-p
 
-qplot(x=ks714NL$normhours,y=ks714NL$norm_goal,color=ks714NL$category2)
+#'Alternative projects' were launched the fastest.
 
-#Model 5
+#Model 5: Measure norm_goal+normhours vs. category
 
-ks714NLTR<-ks714NL[-test_ids,c("outcome","norm_goal","normhours","category2","normtext","duration","country")]
-ks714NLTE<-ks714NL[test_ids,c("outcome","norm_goal","normhours","category2","normtext","duration","country")]
+ks714NL$category2<-relevel(factor(ks714NL$category2),"Art")
 
-model_5<-glm(outcome~(norm_goal+I(norm_goal^2)+normhours+I(normhours^2))*category2,ks714NLTR,family=binomial())
-ks714NLTE$m5pred<-predict(model_5,data.frame(norm_goal=ks714NLTE$norm_goal,normhours=ks714NLTE$normhours,category2=ks714NLTE$category2),type="response")
+ks714NL$m5pred<-predictAll(ks714NL,folds,"outcome~(norm_goal+normhours)*category2")
 
-m5_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714NLTE$m5pred,ks714NLTE$outcome,x))
+m5_roc<-roc(outcome~m5pred,ks714NL)
 
-m5_roc<-roc(outcome~m5pred,ks714NLTE)
-#AUC: .7368, a big improvement!
+m5_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714NL$m5pred,ks714NL$outcome,x))
 
-plot(seq(.01,.99,.01),m5_acc,type='l')
+#Model 6: Include the 'weird' variable
 
-#Model 6: Lasso with auxiliary features
+ks714NL$m6pred<-predictAll(ks714NL,folds,"outcome~(norm_goal+normhours+norm_goal*normhours+norm_duration)*category2")
 
-ksTR_data_matrix<-sparse.model.matrix(outcome~category2*(norm_goal+I(norm_goal^2)+normhours+I(normhours^2)+normtext+I(normtext^2))^2,data=ks714NLTR)
-ksTE_data_matrix<-sparse.model.matrix(outcome~category2*(norm_goal+I(norm_goal^2)+normhours+I(normhours^2)+normtext+I(normtext^2))^2,data=ks714NLTE)
+m6_roc<-roc(outcome~m6pred,ks714NL)
 
-ks_lasso_cv<-cv.glmnet(ksTR_data_matrix,ks714NLTR$outcome,family="binomial",type.measure="auc")
-
-ks_lasso_fit<-glmnet(ksTE_data_matrix, ks714NLTE$outcome,lambda=ks_lasso_cv$lambda.min,family = "binomial")
-
-ks714NLTE$m6pred<-predict(ks_lasso_fit,newx=ksTE_data_matrix,type="response",s=ks_lasso_cv$lambda.min)
-
-m6_roc<-roc(outcome~as.vector(m6pred),ks714NLTE)
-#AUC: .7819. Even better, the fit is starting to become solid
-
-m6_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714NLTE$m6pred,ks714NLTE$outcome,x))
+m6_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714NL$m6pred,ks714NL$outcome,x))
 
 #CURRENT TABLE:
-#MODEL 1: AUC .6148
-#MODEL 2: AUC .6691
-#MODEL 3: AUC .6597
-#MODEL 4: AUC .6882
-#MODEL 5: AUC .7368
-#MODEL 6: AUC .7819
+#MODEL 1: AUC .5955
+#MODEL 2: AUC .6270
+#MODEL 3: AUC .6467
+#MODEL 4: AUC .6586
+#MODEL 5: AUC .7018
+#MODEL 6: AUC .7182
 
 #Accuracy plot:
 matplot(x=seq(.01,.99,.01),do.call(cbind,list(m1_acc,m2_acc,m3_acc,m4_acc,m5_acc,m6_acc)),type='l')

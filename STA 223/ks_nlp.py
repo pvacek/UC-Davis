@@ -10,15 +10,8 @@ import numpy as np
 import pandas as pd
 import re
 import nltk
-import matplotlib.pyplot as plt
-from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.decomposition import PCA, NMF
-from sklearn.manifold import MDS
-from sklearn import neighbors
-import seaborn as sns
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.decomposition import PCA
 
 #Kickstarter NLP analysis
 
@@ -34,36 +27,8 @@ ksaux=ksaux.rename(columns={'id':'ID'})
 ks714C=ks714C.merge(ksaux,on="ID",how='left')
 ks714C.blurb=ks714C.blurb.str.replace('"|^[ ]*|[ ]*$','')
 ks714C.name=ks714C.name.str.replace(' \(Canceled\)','')
-ks714C.text=ks714C.name+" "+ks714C.blurb
-
-#Try the NLP
-
-cv=CountVectorizer(stop_words='english')
-pca=PCA(n_components=2)
-name_fit=cv.fit_transform(ks714C.name).toarray()
-name_pca=pca.fit_transform(name_fit)
-blurb_fit=cv.fit_transform(ks714C.blurb).toarray()
-blurb_pca=pca.fit_transform(blurb_fit)
-
-ks714C["score1"]=name_pca[:,0]
-ks714C["score2"]=name_pca[:,1]
-ks714C["score3"]=blurb_pca[:,0]
-ks714C["score4"]=blurb_pca[:,1]
-
-#What do the plots look like?
-sns.lmplot(x="score1",y="score2",data=ks714C,hue="category",fit_reg=False)
-sns.lmplot(x="score3",y="score4",data=ks714C,hue="category",fit_reg=False)
-#Food seems to be the noisiest cluster. What does the data look like without food?
-
-ks714CF=ks714C.loc[ks714C.category!="Food",:]
-
-#Product design is the least noisest.
-
-sns.lmplot(x="score1",y="score2",data=ks714CF,hue="category",fit_reg=False)
-sns.lmplot(x="score3",y="score4",data=ks714CF,hue="category",fit_reg=False)
-
-#It's easy to tell that score1 is caused by potato salad
-ks714C["category2"]=np.where(ks714C.score1>=.5,"Potato Salad",ks714C.category)
+ks714C["text"]=ks714C.name+" "+ks714C.blurb
+ks714C.text=ks714C.text.str.replace('"','')
 
 ##Some REAL NLP
 
@@ -74,7 +39,7 @@ stemmer=SnowballStemmer('english')
 
 def tokenize_and_stem(text):
     # first tokenize by sentence, then by word to ensure that punctuation is caught as it's own token
-    tokens = [word for sent in nltk.sent_tokenize(text) for word in nltk.word_tokenize(sent)]
+    tokens = [word for sent in nltk.sent_tokenize(text) for word in nltk.wordpunct_tokenize(sent)]
     filtered_tokens = []
     # filter out any tokens not containing letters (e.g., numeric tokens, raw punctuation)
     for token in tokens:
@@ -86,7 +51,7 @@ def tokenize_and_stem(text):
 
 def tokenize_only(text):
     # first tokenize by sentence, then by word to ensure that punctuation is caught as it's own token
-    tokens = [word.lower() for sent in nltk.sent_tokenize(text) for word in nltk.word_tokenize(sent)]
+    tokens = [word.lower() for sent in nltk.sent_tokenize(text) for word in nltk.wordpunct_tokenize(sent)]
     filtered_tokens = []
     # filter out any tokens not containing letters (e.g., numeric tokens, raw punctuation)
     for token in tokens:
@@ -112,65 +77,36 @@ tfidf = TfidfVectorizer(stop_words='english',
 
 tfidf_matrix = tfidf.fit_transform(titles)
 
-dist = 1 - cosine_similarity(tfidf_matrix)
+pca=PCA(n_components=2)
+pca_fit=pca.fit(tfidf_matrix.A)
+pos = pca.fit_transform(tfidf_matrix.A)
 
-from sklearn.cluster import KMeans
+ks714C["score1"]=pos[:,0]
+ks714C["score2"]=pos[:,1]
 
-num_clusters = 5
+#What text is usually present for a high score1?
 
-km = KMeans(n_clusters=num_clusters)
+normal_raw=" ".join(ks714C.text[np.where((ks714C.score1<0.1) & (ks714C.score2 < 0.1))[0]].values.tolist())
+n_text=tokenize_and_stem(normal_raw)
+n_freq=nltk.FreqDist(t.lower() for t in nltk.Text([s for s in n_text if s not in stopwords]))
 
-km.fit(tfidf_matrix)
+n_freq.most_common(5)
 
-clusters = km.labels_.tolist()
+sc1_raw=" ".join(ks714C.text[np.where(ks714C.score1>=0.1)[0]].values.tolist())
+sc1_text=tokenize_and_stem(sc1_raw)
+sc1_freq=nltk.FreqDist(t.lower() for t in nltk.Text([s for s in sc1_text if s not in stopwords]))
 
-ks714C["cluster"]=clusters
+sc1_freq.most_common(5)
 
-terms = tfidf.get_feature_names()
-terms2 = pd.Series(terms)
+sc2_raw=" ".join(ks714C.text[np.where(ks714C.score2>=0.1)[0]].values.tolist())
+sc2_text=tokenize_and_stem(sc2_raw)
+sc2_freq=nltk.FreqDist(t.lower() for t in nltk.Text([s for s in sc2_text if s not in stopwords]))
 
-order_centroids = km.cluster_centers_.argsort()[:, ::-1]
+sc2_freq.most_common(5)
 
-term_list=[terms2[order_centroids[i,:10]].values for i in range(len(order_centroids))]
+weird_KS=((ks714C.score1>=0.1)|(ks714C.score2>=0.1))*1
 
-#Which topics increase the likelihood of success?
-pd.crosstab(ks714C.cluster,ks714C.outcome).apply(lambda r: r/r.sum(), axis=1)
+ks714C["category2"]=np.where(weird_KS==1,"Alternative",ks714C.category)
 
-#We need to start WRAPPING UP this part of the project
-#Consider developing a final model for NLP
-#Topic modeling might be the way to go (e.g. specific topics affect likelihood of success)
-
-#Testing NLP classification
-
-from nltk import word_tokenize
-
-token=tokenize_and_stem(" ".join(ks714C.text.values.tolist()))
-text=nltk.Text([t for t in token if t not in stopwords])
-all_words=nltk.FreqDist(t.lower() for t in text)
-word_features = [a[0] for a in all_words.most_common(100)]
-
-def document_features(document):
-    document_words = set(nltk.Text(tokenize_and_stem(document)))
-    features = {}
-    for word in word_features:
-        features['contains({})'.format(word)] = (word in document_words)
-    return features
-
-featuresets = [document_features(d) for d in ks714C.name.values]
-featuresets = [(featuresets[i],ks714C.outcome.values[i]) for i in range(len(ks714C))]
-
-train_set, test_set = featuresets[:1600], featuresets[1600:]
-classifier = nltk.NaiveBayesClassifier.train(train_set)
-print(nltk.classify.accuracy(classifier, test_set))
-
-#These words are effective at determining successful and unsuccessful projects!
-classifier.show_most_informative_features(20)
-
-#Examine this classifier's relationship with other variables
-
-P_succ=np.array([classifier.prob_classify(document_features(t)).prob(1) for t in ks714C.text.values])
-
-ks714C["textScore"]=np.log(P_succ/(1-P_succ))
-
-ks714C.to_csv('ks714CNLP2.csv')
+ks714C.to_csv('ks714NLP.csv')
 
