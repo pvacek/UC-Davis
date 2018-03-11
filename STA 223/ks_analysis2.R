@@ -8,6 +8,9 @@ library(xtable)
 library(plyr)
 library(pROC)
 library(caret)
+library(grid)
+library(treemap)
+library(xtable)
 
 setwd("../Desktop")
 
@@ -68,17 +71,12 @@ ks714L<-ks714[ks714$category_combo%in%top5cats,-21]
 #Also drop NL/NZ due to their sparse count in this subset.
 ks714L<-ks714L[grepl("N[ZL]",ks714L$country)==FALSE,]
 
+ks714L$category<-factor(ks714L$category)
+
 #Our remaining categories are: Art, Documentaries, Food, Music and Product Design
 
-#CHOICE OF TEST SET, TRAINING SET AND TUNING SET:
-#Split data into four blocks
-folds<-createFolds(ks714L$outcome,k=4)
-
-#Initial set-up, Folds 1&2 form training, 3 forms test, 4 forms tuning
-
-train_idx<-c(folds[[1]],folds[[2]])
-test_idx<-folds[[3]]
-tune_idx<-folds[[4]]
+#Split data into five folds for cross validation
+folds<-createFolds(ks714L$outcome,k=5)
 
 #Part II: Exploratory Data Analysis
 #We have four essential predictors: goal, duration, country, category
@@ -88,7 +86,9 @@ tune_idx<-folds[[4]]
 
 #Simple question: What is the success rate by category?
 
+png("catsucc.png",width=700,height=450)
 barplot(prop.table(table(ks714L$category,ks714L$outcome),margin=1)[,2],ylab="Success Rate",main="Success Rate by Category")
+dev.off()
 
 #Art hits right around the baseline...20%. Documentaries and product designs are more likely to be successful.
 #Food seems to be causing the drag down in success rate.
@@ -114,8 +114,38 @@ p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')+ggtitle("How do proj
 p<-p+theme(plot.title = element_text(hjust = 0.5))
 p
 
+ggsave("catviol.png",plot=last_plot(),width = 7, height = 4.5)
+
 #Some interesting patterns here, mainly that food has its successes at much lower amounts.
 #Music is more likely to be successful at higher amounts.
+
+#What does the goal effect look like across categories?
+
+categoryEffect<-function(cat,data,h){
+  subdata<-subset(data,category==cat)
+  smoother<-smooth.spline(subdata$norm_goal,subdata$outcome, spar = h)
+  return(smoother)
+}
+
+categories<-levels(ks714L$category)
+
+smoothers<-sapply(1:nlevels(ks714L$category),function(i)categoryEffect(categories[i],ks714L,1.2))
+
+p<-ggplot(ks714L,aes(x=norm_goal,y=outcome))+geom_point()
+p<-p+geom_smooth(method="glm",method.args=list(family="binomial"),aes(linetype=category),
+                 fullrange=TRUE,color="black",se=FALSE)
+p<-p+theme_classic()+xlab("Log Goal, USD, normalized by category")+ylab("")
+p<-p+ggtitle("Logistic effects of Goal by Category")+theme(plot.title = element_text(hjust = 0.5))
+p<-p+theme(axis.text.y=element_blank(),axis.ticks.y=element_blank(),axis.line.y=element_blank())
+p<-p+theme(legend.position="none")
+p
+grid.text("Music",x=unit(0.04, "npc"), y = unit(0.24, "npc"))
+grid.text("Design",x=unit(0.04, "npc"), y = unit(0.70, "npc"))
+grid.text("Docu.",x=unit(0.04, "npc"), y = unit(0.67,"npc"))
+grid.text("Art",x=unit(0.04, "npc"), y = unit(0.80,"npc"))
+grid.text("Food",x=unit(0.04, "npc"), y = unit(0.77,"npc"))
+
+ggsave("catlogit.png",plot=last_plot(),width = 7, height = 4.5)
 
 ##iii. DURATION##
 
@@ -123,25 +153,31 @@ p
 
 duration_counts<-as.vector(table(factor(ks714L$duration,levels=seq(1,60))))
 
+png("durationcount.png",width=700,height=450)
 plot(x=seq(1,60),y=duration_counts,type='b',xlab="Duration (days)",ylab="Count",main="Frequency Distribution for Duration")
+dev.off()
 
 #We'll also normalize duration within category
 
-ks714L$norm_duration<-categoryNorm("duration","category",ks714L,ks714TU)
+ks714L$norm_duration<-categoryNorm("duration","category",ks714L,ks714L)
 
 #What does the duration look against outcome?
 
+png("normduration.png",width=700,height=450)
 plot(x=ks714L$norm_duration,y=ks714L$outcome,xlab="Duration, normalized by category",ylab="Project Outcome",
      main="Examining the 'Duration Effect'")
 lines(smooth.spline(ks714L$norm_duration,ks714L$outcome, spar = 1.1), col = "blue",lwd=2)
 abline(h=mean(ks714L$outcome),col="red",lwd=2)
+dev.off()
 
 #Duration looks to be a negative effect. The longer the project, the less likely to succeed.
 
 #How does duration look versus the normalized goal?
+png("durgoal.png",width=700,height=450)
 plot(x=ks714L$norm_duration,y=ks714L$norm_goal,xlab="Normalized Duration",ylab="Normalized Goal",
      main="Examining the Goal-Duration relationship")
 lines(smooth.spline(ks714L$norm_duration,ks714L$norm_goal, spar = 1.3), col = "blue",lwd=2)
+dev.off()
 
 #Positive linear effect, the longer the duration, the more money asked for
 
@@ -150,7 +186,9 @@ lines(smooth.spline(ks714L$norm_duration,ks714L$norm_goal, spar = 1.3), col = "b
 ks714L$country<-factor(ks714L$country,labels=c("Australia","Canada","Great Britain","United States"))
 
 #What is the success rate by country?
+png("countrysucc.png",width=700,height=450)
 barplot(prop.table(table(ks714L$country,ks714L$outcome),margin=1)[,2],ylab="Success Rate",main="Success Rate by Country")
+dev.off()
 
 p <- ggplot(ks714L, aes(x=country, y=norm_goal,fill=factor(outcome,labels=c("Fail","Success")))) + 
   geom_violin(position=position_dodge(1))
@@ -158,6 +196,8 @@ p<-p+ylab("Goal, normalized by category")+xlab("")
 p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')+ggtitle("How well does each country fund projects?")
 p<-p+theme(plot.title = element_text(hjust = 0.5))
 p
+
+ggsave("countryfund.png",plot=last_plot(),width = 7, height = 4.5)
 
 #US is more likely to fund 'extravagant' projects.
 
@@ -168,26 +208,21 @@ catcou2<-aggregate(outcome~country+category,ks714L,sum)
 catcou$rate<-(catcou2$outcome+1)/(catcou$outcome+2)
 catcou$base<-join(catcou,setNames(aggregate(outcome~category,ks714L,mean),c("category","catout")),by="category")$catout
 catcou$impact<-log((catcou$rate)/(1-catcou$rate))-log(catcou$base/(1-catcou$base))
+png(filename="catcou.png",width=1400, height=900)
 treemap(catcou,index=c("country","category"),vSize="outcome",vColor="impact",type="value",palette="Greens",
         title="Are certain countries better at funding projects?",title.legend="")
+dev.off()
 
 #US has balanced taste. Great Britain prefers product design over food. Canada dislikes music projects.
 #Australia is a bit harder to interpret due to size issues, but they prefer art, dislike product design/documentary.
 
 #Part III: Initial model fitting
 
-#Split the data into initial training and test set
-
-ks714TR<-ks714L[train_idx,]
-ks714TE<-ks714L[test_idx,]
-ks714TU<-ks714L[tune_idx,]
-
 #See the prediction accuracy rate for the simplest model, predict success based on norm_goal
 
 ks714L$m1pred<-predictAll(ks714L,folds,"outcome~norm_goal")
 
 m1_roc<-roc(outcome~m1pred,ks714L)
-plot(m1_roc)
 
 m1_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714L$m1pred,ks714L$outcome,x))
 
@@ -200,7 +235,7 @@ plot(m2_roc)
 
 #.6270 AUC, an improvement
 
-m2_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714TE$m2pred,ks714TE$outcome,x))
+m2_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714L$m2pred,ks714L$outcome,x))
 
 #Now try adding country
 
@@ -211,7 +246,7 @@ plot(m3_roc)
 
 #.6467, does help
 
-m3_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714L$m4pred,ks714L$outcome,x))
+m3_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714L$m3pred,ks714L$outcome,x))
 
 ks714L$m4pred<-predictAll(ks714L,folds,"outcome~(category+country)*(norm_goal+norm_duration)")
 
@@ -224,11 +259,7 @@ m4_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714L$m4pred,ks714L$outcom
 
 #A bit better at .632. Still have weak effects unfortunately.
 
-m4_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714TE$m4pred,ks714TE$outcome,x))
-
-#Here's a plot of the accuracy across each model for cutoff value
-
-matplot(x=seq(.01,.99,.01),do.call(cbind,list(m1_acc,m2_acc,m3_acc,m4_acc)),type='l')
+m4_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714L$m4pred,ks714L$outcome,x))
 
 #Model 4 is clearly the best model for prediction so far. But can we improve it?
 
@@ -243,16 +274,18 @@ ks714NL$country<-factor(ks714NL$country,labels=c("Australia","Canada","Great Bri
 
 #What do the 'text scores' look like?
 
-qplot(x=ks714NL$score1,y=ks714NL$score2,color=ks714NL$category)
+p<-ggplot(data=ks714NL,aes(x=score1,y=score2))+geom_point(aes(shape=category),alpha=.5,size=2)+scale_shape_manual(values=c(15,16,17,18,19))+theme_classic()
+p<-p+xlab("Text PCA Score 1")+ylab("Text PCA Score 2")+xlim(NA,0.6)+ylim(NA,0.6)
+p<-p+geom_encircle(data=subset(ks714NL,score1>.1),s_shape=0.9)+geom_encircle(data=subset(ks714NL,score2>.1),s_shape=0.9)
+p<-p+geom_text(x=0.285,y=0.2,label="Group 1:\n Score1>.1")+geom_text(x=.13,y=0.25,label="Group 2:\n Score2>.1")
+p
+
+ggsave("textpca.png",plot=last_plot(),width = 7, height = 4.5)
 
 #The variation in the text data is massively explained by the 'Food' category.
 
 ks714NL$Weird<-(ks714NL$score1>0.1|ks714NL$score2>0.1)*1
-ks714NL$category2<-ifelse(ks714NL$Weird==1,"Alternative",as.character(ks714NL$category))
-
-#We now re-define the categories by adding the 'Potato Salad' factor
-#Example: look at the log hours until launch with potato salad included
-boxplot(log_goal~Weird*outcome*category,ks714NL)
+ks714NL$category2<-factor(ifelse(ks714NL$Weird==1,"Alternative",as.character(ks714NL$category)))
 
 #We renormalize based on category
 
@@ -261,6 +294,23 @@ ks714NL$normhours<-categoryNorm("loghours","category2",ks714NL,ks714NL,useWith=T
 ks714NL$norm_duration<-categoryNorm("duration","category2",ks714NL,ks714NL,useWith=TRUE)
 
 #Let's examine a few predictor relationships
+
+categories<-levels(ks714NL$category2)
+NY_labels<-rep(c("Fail","Succ."),6)
+
+png("goalcat2.png",width=1400,height=900)
+boxplot(log_goal~outcome*category2,ks714NL,xaxt="n")
+title(ylab="Log Goal, (USD), non-normalized", line=2, cex.lab=1.5)
+sapply(1:12,function(i)mtext(NY_labels[i],side=1,line=1,at=i,cex=1.5))
+sapply(1:length(categories),function(i)mtext(categories[i], side=1, line=3, at=2*(i-1)+1.5,cex=2))
+dev.off()
+
+png("hourcat2.png",width=1400,height=900)
+boxplot(loghours~outcome*category2,ks714NL,xaxt="n")
+title(ylab="Log Hours to Launch, non-normalized", line=2, cex.lab=1.5)
+sapply(1:12,function(i)mtext(NY_labels[i],side=1,line=1,at=i,cex=1.5))
+sapply(1:length(categories),function(i)mtext(categories[i], side=1, line=3, at=2*(i-1)+1.5,cex=2))
+dev.off()
 
 #'Alternative projects' were launched the fastest.
 
@@ -274,7 +324,7 @@ m5_roc<-roc(outcome~m5pred,ks714NL)
 
 m5_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714NL$m5pred,ks714NL$outcome,x))
 
-#Model 6: Include the 'weird' variable
+#Model 6: Include extra terms
 
 ks714NL$m6pred<-predictAll(ks714NL,folds,"outcome~(norm_goal+normhours+norm_goal*normhours+norm_duration)*category2")
 
@@ -283,21 +333,82 @@ m6_roc<-roc(outcome~m6pred,ks714NL)
 m6_acc<-sapply(seq(.01,.99,.01),function(x)approxAcc(ks714NL$m6pred,ks714NL$outcome,x))
 
 #CURRENT TABLE:
-#MODEL 1: AUC .5955
-#MODEL 2: AUC .6270
-#MODEL 3: AUC .6467
-#MODEL 4: AUC .6586
-#MODEL 5: AUC .7018
-#MODEL 6: AUC .7182
+#MODEL 1: AUC .6043, Acc.
+#MODEL 2: AUC .6572, Acc.
+#MODEL 3: AUC .6472, Acc.
+#MODEL 4: AUC .6610, Acc.
+#MODEL 5: AUC .7028, Acc.
+#MODEL 6: AUC .7213, Acc.
 
-#Accuracy plot:
-matplot(x=seq(.01,.99,.01),do.call(cbind,list(m1_acc,m2_acc,m3_acc,m4_acc,m5_acc,m6_acc)),type='l')
+acc_list<-list(m1_acc,m2_acc,m3_acc,m4_acc,m5_acc,m6_acc)
 
-#Models 1-4: approx 50% accuracy at mean cutoff
-#Models 5-6: approx 65% accuracy at mean cutoff
-
-#How has the roc improved?
+matplot(x=seq(.01,.99,.01),do.call(cbind,acc_list),xlim=c(.05,.25),xlab="Cutoff Value",ylab="Accuracy Rate",
+        main="Comparing model accuracies")
+abline(v=.2,lty=2)
 
 ROC_list<-list(m1_roc,m2_roc,m3_roc,m4_roc,m5_roc,m6_roc)
 
-sapply(1:length(ROC_list),function(x)lines(ROC_list[[x]],lty=x))
+png("roc.png",width=1100,height=1100)
+plot(x=m1_roc$specificities,y=m1_roc$sensitivities,type='l',xlim=c(1,0),lty=2,lwd=1,cex=2,xlab="",ylab="")
+title(xlab="Specificity",ylab="Sensitivity", line=2, cex.lab=1.5)
+lines(x=seq(1,0,-.01),y=seq(0,1,.01),lwd=2,col="red")
+sapply(2:4,function(i)lines(x=ROC_list[[i]]$specificities,y=ROC_list[[i]]$sensitivities,lty=2,lwd=1))
+sapply(5:6,function(i)lines(x=ROC_list[[i]]$specificities,y=ROC_list[[i]]$sensitivities,lwd=2))
+dev.off()
+
+#Which projects were hardest to predict?
+predmat<-cbind(ks714L$m1pred,ks714L$m2pred,ks714L$m3pred,ks714L$m4pred,ks714NL$m5pred,ks714NL$m6pred)
+outcomemat<-predmat>=mean(ks714L$outcome)
+num_correct<-apply(ks714L$outcome==outcomemat,1,sum)
+
+#How many projects were guessed incorrectly across ALL models?
+xtable(table(num_correct))
+
+#Did these models do better or worse on specific categories?
+xtable(aggregate(num_correct~category2,ks714NL,mean))
+
+#It seems to be that Food category was easiest to predict, while the Product Design category was the hardest.
+
+#360 projects did not agree with any of our models.
+
+#Averaging out our model probabilities gives us a 'naive' estimate of what we think should be a successful project.
+avg_probs<-apply(predmat,1,mean)
+
+#We can look at some projects that disagree with these averages to get an idea of what we should have investigated
+#Which project had the highest average probability but failed?
+
+ks714NL[which.max(avg_probs),c("name","usd_goal_real")]
+
+#The model seems to point in the right direction here, it's just that the project was canceled.
+#This suggests that cancelled projects may be an issue with regards to prediction.
+
+#What project had the lowest average probability but succeeded?
+subset(ks714NL,outcome==1)[which.min(avg_probs[ks714NL$outcome==1]),c("name","usd_goal_real")]
+
+#Our models were very harsh on projects from the food category. This project also seemed to ask for a lot of money.
+#This project seems much more serious than the other food ones. So using sentiment analysis would have helped here.
+
+#MAKING TABLES:
+
+#Model fits
+
+model_tbl1<-data.frame(Model=c("Model 1","Model 2","Model 3","Model 4"),
+           Predictors=c("~norm_goal","~goal*category","~goal*(category+country)","~(goal+duration)*(category+country)"),
+           AUC=c(.6043,.6527,.6472,.6610),Acc=c(.5564,.5406,.5423,.5739))
+
+xtable(model_tbl1)
+
+model_tbl2<-data.frame(Model=c("Model 5","Model 6"),Predictors=c("~(goal+hours)*category2","~(goal+hours+goal*hours+duration)*category2"),
+           AUC=c(.7028,.7213),Acc=c(.6366,.6344))
+
+xtable(model_tbl2)
+
+#Text tables
+
+text_table<-data.frame(Group=c("Score1<=.1&Score2<=.1","Score1>.1","Score2>.1"),first=c("make","salad","make"),
+                       second=c("help","potato","pizza"),third=c("want","make","want"),
+                       fourth=c("need","want","cookie"),fifth=c("music","better","chip"))
+
+xtable(text_table)
+
+
