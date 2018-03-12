@@ -45,10 +45,10 @@
   \hline
  & Model & Predictors & AUC & Acc \\ 
   \hline
-1 & Model 1 & \~{}norm\_goal & 0.60 & 0.56 \\ 
-  2 & Model 2 & \~{}goal*category & 0.65 & 0.54 \\ 
-  3 & Model 3 & \~{}goal*(category+country) & 0.65 & 0.54 \\ 
-  4 & Model 4 & \~{}(goal+duration)*(category+country) & 0.66 & 0.57 \\ 
+1 & Model 1 & \~{}norm\_goal & 0.6043 & 0.5564 \\ 
+  2 & Model 2 & \~{}goal*category & 0.6527 & 0.5406 \\ 
+  3 & Model 3 & \~{}goal*(category+country) & 0.6472 & 0.5423 \\ 
+  4 & Model 4 & \~{}(goal+duration)*(category+country) & 0.6610 & 0.5739 \\ 
    \hline
 \end{tabular}
 \end{table}
@@ -61,8 +61,8 @@
   \hline
  & Model & Predictors & AUC & Acc \\ 
   \hline
-1 & Model 5 & \~{}(goal+hours)*category2 & 0.70 & 0.64 \\ 
-  2 & Model 6 & \~{}(goal+hours+goal*hours+duration)*category2 & 0.72 & 0.63 \\ 
+1 & Model 5 & \~{}(goal+hours)*category2 & 0.7028 & 0.6366 \\ 
+  2 & Model 6 & \~{}(goal+hours+goal*hours+duration)*category2 & 0.7213 & 0.6344 \\ 
    \hline
 \end{tabular}
 \end{table}
@@ -78,6 +78,32 @@
 1 & Score1$<$=.1\&Score2$<$=.1 & make & help & want & need & music \\ 
   2 & Score1$>$.1 & salad & potato & make & want & better \\ 
   3 & Score2$>$.1 & make & pizza & want & cookie & chip \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+#Thought it would succeed but it failed:
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlr}
+  \hline
+ & name & usd\_goal\_real \\ 
+  \hline
+151 & I'm going to make a paper plane (Suspended) & 4.87 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+#Thought it would fail but it succeeded:
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlr}
+  \hline
+ & name & usd\_goal\_real \\ 
+  \hline
+1186 & Oasis Farmery: Growing local food using aquaponics & 9192.87 \\ 
    \hline
 \end{tabular}
 \end{table}
