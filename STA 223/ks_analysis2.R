@@ -9,8 +9,8 @@ library(plyr)
 library(pROC)
 library(caret)
 library(grid)
-library(treemap)
 library(xtable)
+library(ggalt)
 
 setwd("../Desktop")
 
@@ -86,9 +86,18 @@ folds<-createFolds(ks714L$outcome,k=5)
 
 #Simple question: What is the success rate by category?
 
-png("catsucc.png",width=700,height=450)
-barplot(prop.table(table(ks714L$category,ks714L$outcome),margin=1)[,2],ylab="Success Rate",main="Success Rate by Category")
-dev.off()
+succ_table<-sort(prop.table(table(ks714L$category,ks714L$outcome),margin=1)[,2])
+succ_df<-data.frame(Name=names(succ_table),Rate=as.vector(succ_table))
+succ_df$Count<-c(870,337,299,290,422)
+
+p<-ggplot(succ_df,aes(x=Name,y=Rate))+geom_bar(stat="identity",width=0.5,fill="gray",color="black")
+p<-p+coord_flip()+theme_classic()+ylab("Project Success Rate")+xlab("")
+p<-p+geom_text(aes(label=Count), hjust=1.5, color="black", size=5)
+p<-p+theme(axis.text=element_text(size=16),
+           axis.title=element_text(size=14))
+p
+
+ggsave("catsucc.png",plot=last_plot(),width = 7, height = 4.5)
 
 #Art hits right around the baseline...20%. Documentaries and product designs are more likely to be successful.
 #Food seems to be causing the drag down in success rate.
@@ -110,8 +119,9 @@ ks714L$norm_goal<-categoryNorm("log_goal","category",ks714L,ks714L)
 p <- ggplot(ks714L, aes(x=category, y=usd_goal_real,fill=factor(outcome,labels=c("Fail","Success")))) + 
   geom_violin(position=position_dodge(1))+scale_y_log10(labels = scales::comma,breaks=c(0,10^seq(0,9)))
 p<-p+ylab("Goal (USD, real dollars)")+xlab("")
-p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')+ggtitle("How do projects succeed across each category?")
-p<-p+theme(plot.title = element_text(hjust = 0.5))
+p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')
+p<-p+theme(plot.title = element_text(hjust = 0.5))+theme(axis.text=element_text(size=14),
+                                                         axis.title=element_text(size=14))
 p
 
 ggsave("catviol.png",plot=last_plot(),width = 7, height = 4.5)
@@ -131,13 +141,14 @@ categories<-levels(ks714L$category)
 
 smoothers<-sapply(1:nlevels(ks714L$category),function(i)categoryEffect(categories[i],ks714L,1.2))
 
-p<-ggplot(ks714L,aes(x=norm_goal,y=outcome))+geom_point()
+p<-ggplot(ks714L,aes(x=norm_goal,y=outcome))+geom_point(alpha=.25)
 p<-p+geom_smooth(method="glm",method.args=list(family="binomial"),aes(linetype=category),
                  fullrange=TRUE,color="black",se=FALSE)
 p<-p+theme_classic()+xlab("Log Goal, USD, normalized by category")+ylab("")
-p<-p+ggtitle("Logistic effects of Goal by Category")+theme(plot.title = element_text(hjust = 0.5))
+p<-p+theme(plot.title = element_text(hjust = 0.5))
 p<-p+theme(axis.text.y=element_blank(),axis.ticks.y=element_blank(),axis.line.y=element_blank())
-p<-p+theme(legend.position="none")
+p<-p+theme(legend.position="none")+theme(axis.text=element_text(size=14),
+                                         axis.title=element_text(size=14))
 p
 grid.text("Music",x=unit(0.04, "npc"), y = unit(0.24, "npc"))
 grid.text("Design",x=unit(0.04, "npc"), y = unit(0.70, "npc"))
@@ -153,9 +164,11 @@ ggsave("catlogit.png",plot=last_plot(),width = 7, height = 4.5)
 
 duration_counts<-as.vector(table(factor(ks714L$duration,levels=seq(1,60))))
 
-png("durationcount.png",width=700,height=450)
-plot(x=seq(1,60),y=duration_counts,type='b',xlab="Duration (days)",ylab="Count",main="Frequency Distribution for Duration")
-dev.off()
+p<-ggplot(data=data.frame(duration_counts),aes(x=seq(1,60),y=duration_counts))+geom_point()+geom_line()
+p<-p+theme_classic()+xlab("Duration (days)")+ylab("Count")
+p
+
+ggsave("durationcount.png",plot=last_plot(),width = 7, height = 4.5)
 
 #We'll also normalize duration within category
 
@@ -163,21 +176,32 @@ ks714L$norm_duration<-categoryNorm("duration","category",ks714L,ks714L)
 
 #What does the duration look against outcome?
 
-png("normduration.png",width=700,height=450)
-plot(x=ks714L$norm_duration,y=ks714L$outcome,xlab="Duration, normalized by category",ylab="Project Outcome",
-     main="Examining the 'Duration Effect'")
-lines(smooth.spline(ks714L$norm_duration,ks714L$outcome, spar = 1.1), col = "blue",lwd=2)
-abline(h=mean(ks714L$outcome),col="red",lwd=2)
-dev.off()
+p<-ggplot(ks714L,aes(x=norm_duration,y=outcome))+geom_point(alpha=.25)
+p<-p+geom_smooth(method="glm",method.args=list(family="binomial"),aes(linetype=category),
+                 fullrange=TRUE,color="black",se=FALSE)
+p<-p+theme_classic()+xlab("Duration (days), normalized by category")+ylab("")
+p<-p+theme(plot.title = element_text(hjust = 0.5))
+p<-p+theme(axis.text.y=element_blank(),axis.ticks.y=element_blank(),axis.line.y=element_blank())
+p<-p+theme(legend.position="none")+theme(axis.text=element_text(size=14),
+                                         axis.title=element_text(size=14))
+p
+
+ggsave("normduration.png",plot=last_plot(),width = 7, height = 4.5)
 
 #Duration looks to be a negative effect. The longer the project, the less likely to succeed.
 
 #How does duration look versus the normalized goal?
-png("durgoal.png",width=700,height=450)
-plot(x=ks714L$norm_duration,y=ks714L$norm_goal,xlab="Normalized Duration",ylab="Normalized Goal",
-     main="Examining the Goal-Duration relationship")
-lines(smooth.spline(ks714L$norm_duration,ks714L$norm_goal, spar = 1.3), col = "blue",lwd=2)
-dev.off()
+
+p<-ggplot(ks714L,aes(x=norm_duration,y=norm_goal))+geom_point(alpha=.25)
+p<-p+geom_smooth(method="lm",fullrange=TRUE,color="black",se=FALSE)
+p<-p+theme_classic()+xlab("Duration (days), normalized by category")+ylab("Log Goal, USD, normalized by category")
+p<-p+theme(plot.title = element_text(hjust = 0.5))
+p<-p+theme(axis.text.y=element_blank(),axis.ticks.y=element_blank(),axis.line.y=element_blank())
+p<-p+theme(legend.position="none")+theme(axis.text=element_text(size=14),
+                                         axis.title=element_text(size=14))
+p
+
+ggsave("durgoal.png",plot=last_plot(),width = 7, height = 4.5)
 
 #Positive linear effect, the longer the duration, the more money asked for
 
@@ -186,35 +210,31 @@ dev.off()
 ks714L$country<-factor(ks714L$country,labels=c("Australia","Canada","Great Britain","United States"))
 
 #What is the success rate by country?
-png("countrysucc.png",width=700,height=450)
-barplot(prop.table(table(ks714L$country,ks714L$outcome),margin=1)[,2],ylab="Success Rate",main="Success Rate by Country")
-dev.off()
+
+cou_table<-sort(prop.table(table(ks714L$country,ks714L$outcome),margin=1)[,2])
+cou_df<-data.frame(Name=names(cou_table),Rate=as.vector(cou_table))
+cou_df$Count<-c(68,168,242,1740)
+
+p<-ggplot(cou_df,aes(x=Name,y=Rate))+geom_bar(stat="identity",width=0.5,fill="gray",color="black")
+p<-p+coord_flip()+theme_classic()+ylab("Project Success Rate")+xlab("")
+p<-p+geom_text(aes(label=Count), hjust=1.5, color="black", size=5)
+p<-p+theme(axis.text=element_text(size=16),
+           axis.title=element_text(size=14))
+p
+
+ggsave("countrysucc.png",plot=last_plot(),width = 7, height = 4.5)
 
 p <- ggplot(ks714L, aes(x=country, y=norm_goal,fill=factor(outcome,labels=c("Fail","Success")))) + 
   geom_violin(position=position_dodge(1))
 p<-p+ylab("Goal, normalized by category")+xlab("")
 p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')+ggtitle("How well does each country fund projects?")
-p<-p+theme(plot.title = element_text(hjust = 0.5))
+p<-p+theme(plot.title = element_text(hjust = 0.5))+theme(axis.text=element_text(size=14),
+                                                         axis.title=element_text(size=14))
 p
 
 ggsave("countryfund.png",plot=last_plot(),width = 7, height = 4.5)
 
 #US is more likely to fund 'extravagant' projects.
-
-#Are there specific category/country combos that are unusually successful?
-
-catcou<-aggregate(outcome~country+category,ks714L,length)
-catcou2<-aggregate(outcome~country+category,ks714L,sum)
-catcou$rate<-(catcou2$outcome+1)/(catcou$outcome+2)
-catcou$base<-join(catcou,setNames(aggregate(outcome~category,ks714L,mean),c("category","catout")),by="category")$catout
-catcou$impact<-log((catcou$rate)/(1-catcou$rate))-log(catcou$base/(1-catcou$base))
-png(filename="catcou.png",width=1400, height=900)
-treemap(catcou,index=c("country","category"),vSize="outcome",vColor="impact",type="value",palette="Greens",
-        title="Are certain countries better at funding projects?",title.legend="")
-dev.off()
-
-#US has balanced taste. Great Britain prefers product design over food. Canada dislikes music projects.
-#Australia is a bit harder to interpret due to size issues, but they prefer art, dislike product design/documentary.
 
 #Part III: Initial model fitting
 
@@ -277,7 +297,9 @@ ks714NL$country<-factor(ks714NL$country,labels=c("Australia","Canada","Great Bri
 p<-ggplot(data=ks714NL,aes(x=score1,y=score2))+geom_point(aes(shape=category),alpha=.5,size=2)+scale_shape_manual(values=c(15,16,17,18,19))+theme_classic()
 p<-p+xlab("Text PCA Score 1")+ylab("Text PCA Score 2")+xlim(NA,0.6)+ylim(NA,0.6)
 p<-p+geom_encircle(data=subset(ks714NL,score1>.1),s_shape=0.9)+geom_encircle(data=subset(ks714NL,score2>.1),s_shape=0.9)
-p<-p+geom_text(x=0.285,y=0.2,label="Group 1:\n Score1>.1")+geom_text(x=.13,y=0.25,label="Group 2:\n Score2>.1")
+p<-p+geom_text(x=0.285,y=0.2,label="Group 1:\n Score1>.1",size=5)+geom_text(x=.13,y=0.25,label="Group 2:\n Score2>.1",size=5)
+p<-p+theme(axis.text=element_text(size=14),
+            axis.title=element_text(size=14))
 p
 
 ggsave("textpca.png",plot=last_plot(),width = 7, height = 4.5)
@@ -298,19 +320,51 @@ ks714NL$norm_duration<-categoryNorm("duration","category2",ks714NL,ks714NL,useWi
 categories<-levels(ks714NL$category2)
 NY_labels<-rep(c("Fail","Succ."),6)
 
-png("goalcat2.png",width=1400,height=900)
-boxplot(log_goal~outcome*category2,ks714NL,xaxt="n")
-title(ylab="Log Goal, (USD), non-normalized", line=2, cex.lab=1.5)
-sapply(1:12,function(i)mtext(NY_labels[i],side=1,line=1,at=i,cex=1.5))
-sapply(1:length(categories),function(i)mtext(categories[i], side=1, line=3, at=2*(i-1)+1.5,cex=2))
-dev.off()
+p <- ggplot(ks714NL, aes(x=category2, y=usd_goal_real,fill=factor(outcome,labels=c("Fail","Success")))) + 
+  geom_boxplot(position=position_dodge(1))+scale_y_log10(labels = scales::comma,breaks=c(0,10^seq(0,9)))
+p<-p+ylab("Goal (USD, real dollars)")+xlab("")
+p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')
+p<-p+theme(plot.title = element_text(hjust = 0.5))+theme(axis.text=element_text(size=14),
+                                                         axis.title=element_text(size=14))
+p<-p+scale_fill_manual(values=c("#636363","#f0f0f0"))
+p
 
-png("hourcat2.png",width=1400,height=900)
-boxplot(loghours~outcome*category2,ks714NL,xaxt="n")
-title(ylab="Log Hours to Launch, non-normalized", line=2, cex.lab=1.5)
-sapply(1:12,function(i)mtext(NY_labels[i],side=1,line=1,at=i,cex=1.5))
-sapply(1:length(categories),function(i)mtext(categories[i], side=1, line=3, at=2*(i-1)+1.5,cex=2))
-dev.off()
+ggsave("goalcat2.png",plot=last_plot(),width = 7, height = 4.5)
+
+p <- ggplot(ks714NL, aes(x=factor(Weird,labels=c("Regular","Weird")),
+                         y=usd_goal_real,fill=factor(outcome,labels=c("Fail","Success")))) + 
+  geom_boxplot(position=position_dodge(1))+scale_y_log10(labels = scales::comma,breaks=c(0,10^seq(0,9)))
+p<-p+ylab("Goal (USD, real dollars)")+xlab("")
+p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')
+p<-p+theme(plot.title = element_text(hjust = 0.5))+theme(axis.text=element_text(size=14),
+                                                         axis.title=element_text(size=14))
+p<-p+scale_fill_manual(values=c("#636363","#f0f0f0"))
+p
+
+ggsave("goalweird.png",plot=last_plot(),width = 7, height = 4.5)
+
+p <- ggplot(ks714NL, aes(x=category2, y=loghours,fill=factor(outcome,labels=c("Fail","Success")))) + 
+  geom_boxplot(position=position_dodge(1))
+p<-p+ylab("Log Hours, non-normalized")+xlab("")
+p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')
+p<-p+theme(plot.title = element_text(hjust = 0.5))+theme(axis.text=element_text(size=14),
+                                                         axis.title=element_text(size=14))
+p<-p+scale_fill_manual(values=c("#636363","#f0f0f0"))
+p
+
+ggsave("hourcat2.png",plot=last_plot(),width = 7, height = 4.5)
+
+p <- ggplot(ks714NL, aes(x=factor(Weird,labels=c("Regular","Weird")),
+                         y=loghours,fill=factor(outcome,labels=c("Fail","Success")))) + 
+  geom_boxplot(position=position_dodge(1))
+p<-p+ylab("Log Hours, non-normalized")+xlab("")
+p<-p+scale_fill_grey()+theme_classic()+labs(fill='Outcome')
+p<-p+theme(plot.title = element_text(hjust = 0.5))+theme(axis.text=element_text(size=14),
+                                                         axis.title=element_text(size=14))
+p<-p+scale_fill_manual(values=c("#636363","#f0f0f0"))
+p
+
+ggsave("hourweird.png",plot=last_plot(),width = 7, height = 4.5)
 
 #'Alternative projects' were launched the fastest.
 
@@ -349,8 +403,8 @@ abline(v=.2,lty=2)
 ROC_list<-list(m1_roc,m2_roc,m3_roc,m4_roc,m5_roc,m6_roc)
 
 png("roc.png",width=1100,height=1100)
-plot(x=m1_roc$specificities,y=m1_roc$sensitivities,type='l',xlim=c(1,0),lty=2,lwd=1,cex=2,xlab="",ylab="")
-title(xlab="Specificity",ylab="Sensitivity", line=2, cex.lab=1.5)
+plot(x=m1_roc$specificities,y=m1_roc$sensitivities,type='l',xlim=c(1,0),lty=2,lwd=1,cex=2,xlab="",ylab="",cex.axis=1.5)
+title(xlab="Specificity",ylab="Sensitivity", line=2.5, cex.lab=1.5)
 lines(x=seq(1,0,-.01),y=seq(0,1,.01),lwd=2,col="red")
 sapply(2:4,function(i)lines(x=ROC_list[[i]]$specificities,y=ROC_list[[i]]$sensitivities,lty=2,lwd=1))
 sapply(5:6,function(i)lines(x=ROC_list[[i]]$specificities,y=ROC_list[[i]]$sensitivities,lwd=2))
@@ -377,13 +431,13 @@ avg_probs<-apply(predmat,1,mean)
 #We can look at some projects that disagree with these averages to get an idea of what we should have investigated
 #Which project had the highest average probability but failed?
 
-ks714NL[which.max(avg_probs),c("name","usd_goal_real")]
+xtable(ks714NL[which.max(avg_probs),c("name","usd_goal_real")])
 
 #The model seems to point in the right direction here, it's just that the project was canceled.
 #This suggests that cancelled projects may be an issue with regards to prediction.
 
 #What project had the lowest average probability but succeeded?
-subset(ks714NL,outcome==1)[which.min(avg_probs[ks714NL$outcome==1]),c("name","usd_goal_real")]
+xtable(subset(ks714NL,outcome==1)[which.min(avg_probs[ks714NL$outcome==1]),c("name","usd_goal_real")])
 
 #Our models were very harsh on projects from the food category. This project also seemed to ask for a lot of money.
 #This project seems much more serious than the other food ones. So using sentiment analysis would have helped here.
@@ -396,12 +450,12 @@ model_tbl1<-data.frame(Model=c("Model 1","Model 2","Model 3","Model 4"),
            Predictors=c("~norm_goal","~goal*category","~goal*(category+country)","~(goal+duration)*(category+country)"),
            AUC=c(.6043,.6527,.6472,.6610),Acc=c(.5564,.5406,.5423,.5739))
 
-xtable(model_tbl1)
+xtable(model_tbl1,digits=4)
 
 model_tbl2<-data.frame(Model=c("Model 5","Model 6"),Predictors=c("~(goal+hours)*category2","~(goal+hours+goal*hours+duration)*category2"),
            AUC=c(.7028,.7213),Acc=c(.6366,.6344))
 
-xtable(model_tbl2)
+xtable(model_tbl2,digits=4)
 
 #Text tables
 
