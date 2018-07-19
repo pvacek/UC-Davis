@@ -1,15 +1,21 @@
 #Permit Tool: Server
 
-library(shiny)
-library(rhandsontable)
-library(pdftools)
-library(stringr)
+require(shiny)
+require(rhandsontable)
+require(pdftools)
+require(stringr)
+require(RCurl)
 
-source("statecheck.R")
-source("textscrape.R")
-source("tablescrape.R")
+gitsource<-function(u){
+  script<-getURL(u,ssl.verifypeer = FALSE)
+  eval(parse(text=script), envir= .GlobalEnv)
+}
 
-default=read.csv("../ptest.csv")
+gitsource("https://raw.githubusercontent.com/pvacek/UC-Davis/master/Upwork/Permit/statecheck.R")
+gitsource("https://raw.githubusercontent.com/pvacek/UC-Davis/master/Upwork/Permit/textscrape.R")
+gitsource("https://raw.githubusercontent.com/pvacek/UC-Davis/master/Upwork/Permit/tablescrape.R")
+
+default=read.csv(text=getURL("https://raw.githubusercontent.com/pvacek/UC-Davis/master/Upwork/Permit/ptest.csv"))
 
 pdf_read<-function(pdf){
   return(paste0(pdf_text(pdf),collapse=" "))
