@@ -100,7 +100,7 @@ extract_route<-function(pdf,state=""){
   route_df$miles<-c(0,diff(route_df$distance))
   route_df$miles<-ifelse(route_df$miles<0,0,route_df$miles)
   route_df$type<-guess_stateline(route_df$to)
-  route_df<-route_df[,is.na(names(route_df)==FALSE)]
+  route_df<-route_df[,is.na(names(route_df))==FALSE]
   return(route_df)
 }
 
