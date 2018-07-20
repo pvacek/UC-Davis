@@ -10,7 +10,7 @@ text_scrape<-function(pdf,state=""){
   or<-as.character(guess_orientation(hmatches))
   n<-length(or)
   routes<-str_extract(hmatches,"^[A-Z0-9]+")
-  route_df<-data.frame(miles=NA,route=c("",routes,""),distance=NA,est_time=NA,orienation=c(NA,or,NA),
+  route_df<-data.frame(miles=NA,route=c("",routes,""),to=NA,distance=NA,est_time=NA,orienation=c(NA,or,NA),
                        type=c("Stateline",rep("Highway",n),"Stateline"))
   route_df$route<-route_clean(route_df$route,state)
   return(route_df)
