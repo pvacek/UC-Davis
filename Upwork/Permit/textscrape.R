@@ -3,8 +3,7 @@ library(pdftools)
 
 #Scrape by text in the best way possible
 
-text_scrape<-function(pdf,state=""){
-  raw<-pdf_read(pdf)
+text_scrape<-function(raw,state=""){
   lean<-gsub("[ ]{2,}"," ",gsub("[^0-9 A-z]","",raw))
   hmatches<-str_extract_all(lean,"[A-Z]{1,3}-{0,2}[0-9]{1,4} [NWES]{1,2}B*")[[1]]
   or<-as.character(guess_orientation(hmatches))
