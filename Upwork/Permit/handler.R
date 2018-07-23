@@ -2,7 +2,6 @@
 
 #Backend: Handler script
 
-require(rhandsontable)
 require(pdftools)
 require(stringr)
 require(RCurl)
@@ -52,16 +51,22 @@ table_step<-function(tbl,state=""){
 
 handler<-function(row,r=100){
   #r is the number of characters at which we switch to OCR. Most permits seem to have at least 500 characters
-  print(cat("Reading ",row$name,sep=""))
+  print(paste0("Reading ",row$name))
   #Step I: Extract pdf datapath
   pdf<-as.character(row$datapath)
   #Step II: Extract state
   state<-ifelse(!is.na(match(toupper(as.character(row$state)),state.abb)),as.character(row$state),state_check(pdf))
-  print(cat("Guessed State: ",state,sep=""))
+  print(paste0("Guessed State: ",state))
   #Step III: Try getting the table from the pdf
   print("Attempting route extraction via tables.")
-  tbl<-extract_tables(pdf,state)
-  route_df<-ifelse(length(tbl)>0,table_step(tbl),NULL)
+  print(pdf)
+  tbl<-extract_tables(pdf)
+  if(length(tbl)>0){
+    route_df<-table_step(tbl,state)
+  }
+  else{
+    route_df<-NULL
+  }
   #Step IV: Try extracting a pattern from the text
   if(is.null(route_df)){
     print("Trying route extraction via text...")
@@ -82,10 +87,11 @@ handler<-function(row,r=100){
       }
     }
   }
-  if(nrow(route_df)<=2){
+  if(nrow(route_df)<=2 || is.null(route_df)){
     route_df<-null_data()
   }
-  route_df<-data.frame(route_df,Order=1:n,Keep=TRUE,State=state,stringsAsFactors = FALSE)
+  route_df<-data.frame(lapply(route_df,as.character),Order=1:nrow(route_df),Keep=TRUE,State=state,stringsAsFactors = FALSE)
+  print(route_df)
   return(route_df)
 }
 

@@ -80,7 +80,7 @@ extract_route<-function(tbl,state=""){
   route_df<-data.frame(fix_bleeding(route_df_raw))
   names(route_df)<-c("miles","route","to","distance","est_time")
   #Do all the data cleaning with regular expressions
-  route_df$orienation<-guess_orientation(route_df$route)
+  route_df$orientation<-guess_orientation(route_df$route)
   route_df$route<-state_route(route_df$route,state)
   route_df<-same_highway(route_df)
   route_df$distance<-strip_numbers(route_df$distance)
