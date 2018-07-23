@@ -31,16 +31,6 @@ same_highway<-function(route_df){
   return(route_df[-dupes,])
 }
 
-miles_test<-function(tbl,k=0.5){
-  ###
-  #Test if the dataset has a miles column
-  #If the proportion of numeric entries in the colum exceeds k=0.5, then it is evidence that it is a relevant table
-  ###
-  n<-nrow(tbl)
-  n_miles<-sum(grepl("^[0-9. <>-]+$",tbl[,1]))
-  ifelse((n_miles/n)>k,TRUE,FALSE)
-}
-
 replace_val<-function(val,df,i,j){
   df[i,j]<-val
 }
@@ -85,7 +75,7 @@ route_clean<-function(route,state=""){
 }
 
 extract_route<-function(tbl,state=""){
-  route_df_raw<-do.call(rbind,route_pdf[sapply(route_pdf,miles_test)])
+  route_df_raw<-do.call(rbind,tbl[sapply(tbl,miles_test)])
   #Detect any 'bleeding' rows due to column length restrictions
   route_df<-data.frame(fix_bleeding(route_df_raw))
   names(route_df)<-c("miles","route","to","distance","est_time")
